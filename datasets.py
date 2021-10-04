@@ -18,8 +18,7 @@ class VideoDataset(Dataset):
 
     def __getitem__(self, index):
 
-        label = torch.tensor([self.dataframe.iloc[index][1],self.dataframe.iloc[index][2],self.dataframe.iloc[index][3],
-        	self.dataframe.iloc[index][4]])
+        label = torch.tensor(self.dataframe.iloc[index][2])
         video = os.path.join(self.root, self.dataframe.iloc[index].ClipID.replace(".avi","").replace(".mp4",""))
         frames = self.transform(video)
 
