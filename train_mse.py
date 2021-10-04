@@ -3,7 +3,6 @@ from torch.optim.lr_scheduler import StepLR
 from tqdm import tqdm
 import torch
 from torch import nn, optim
-
 import numpy as np
 
 # from ResTCN import ResTCN
@@ -11,14 +10,12 @@ from ResTCN import ResTCN
 from utils import get_dataloaders
 
 torch.manual_seed(0)
-num_epochs = 30
+num_epochs = 5
 batch_size = 4
 lr = .001
 use_cuda = True
 device = torch.device("cuda" if use_cuda else "cpu")
 print("Device being used:", device, flush=True)
-
-
 dataloader = get_dataloaders(batch_size,
                             'train.csv',
                             os.path.join(os.getcwd(), 'TrainFrames'),
@@ -31,9 +28,7 @@ model = ResTCN().to(device)
 # optimizer = optim.Adam(model.parameters(), lr=lr)
 optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)
 scheduler = StepLR(optimizer, step_size=50, gamma=.1)
-
 criterion = nn.MSELoss().to(device)
-softmax = nn.Softmax()
 
 for epoch in range(num_epochs):
 
@@ -50,8 +45,7 @@ for epoch in range(num_epochs):
 
             with torch.set_grad_enabled(phase == 'train'):
                 outputs = model(inputs).squeeze()
-                loss = criterion(outputs, labels)
-
+                loss = criterion(outputs, labels)  
                 if phase == 'train':
                     optimizer.zero_grad()
                     loss.backward()
@@ -66,6 +60,7 @@ for epoch in range(num_epochs):
 
         print("[{}] Epoch: {}/{} Loss: {} LR: {}".format(
             phase, epoch + 1, num_epochs, epoch_loss, scheduler.get_last_lr()), flush=True)
+    print("--------------------------------------------------------------------------------")
 
 torch.save(model,"model.pt")
 torch.save(model.state_dict(),"model_state_dict")
