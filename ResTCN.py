@@ -17,9 +17,9 @@ class ResTCN(nn.Module):
     def __init__(self):
         super(ResTCN, self).__init__()
 
-        self.spatial_feat_dim = 32
-        self.num_classes = 4
-        self.nhid = 128 #inception net vgg face2
+        self.spatial_feat_dim = 512
+        self.num_classes = 1
+        self.nhid = 64 #inception net vgg face2 hidden layers
         self.levels = 8
         self.kernel_size = 7
         self.dropout = .1
@@ -33,7 +33,7 @@ class ResTCN(nn.Module):
         self.linear = nn.Linear(self.channel_sizes[-1], self.num_classes)
 
         self.model_conv = InceptionResnetV1(pretrained='vggface2').eval()
-        self.model_linear = nn.Linear(512,self.spatial_feat_dim)
+        #self.model_linear = nn.Linear(512,self.spatial_feat_dim)
         # for param in self.model_conv.parameters():
         #     param.requires_grad = False
 
@@ -53,7 +53,7 @@ class ResTCN(nn.Module):
         z = torch.zeros([data.shape[0], data.shape[1], self.spatial_feat_dim]).cuda()
         for t in range(data.size(1)):
             x = self.model_conv(data[:, t, :, :, :])
-            x = self.model_linear(x)
+            #x = self.model_linear(x)
             z[:, t, :] = x
 
         # y, _ = self.rnn(z)
