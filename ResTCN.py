@@ -1,73 +1,66 @@
-from torch.optim.lr_scheduler import StepLR
-from tqdm import tqdm
 import torch
-from torch import nn, optim
-import numpy as np
+import torch.nn as nn
+from facenet_pytorch import InceptionResnetV1
+from TCN import TemporalConvNet
 
-# from ResTCN import ResTCN
-from ResTCN import ResTCN
-from utils import get_dataloaders
 
-torch.manual_seed(0)
-num_epochs = 30
-batch_size = 4
-lr = .0001
-use_cuda = True
-device = torch.device("cuda" if use_cuda else "cpu")
-print("Device being used:", device, flush=True)
-dataloader = get_dataloaders(batch_size,
-                            'train.csv',
-                            'test.csv',)
-dataset_sizes = {x: len(dataloader[x].dataset) for x in ['train', 'test']}
-print(dataset_sizes, flush=True)
-gamma = 2
-epsilon=.001
-model = ResTCN().to(device)
-optimizer = optim.Adam(model.parameters(), lr=lr)
-#optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)
-scheduler = StepLR(optimizer, step_size=50, gamma=.1)
-criterion = nn.MSELoss().to(device)
+class Identity(nn.Module):
+    def __init__(self):
+        super(Identity, self).__init__()
 
-for epoch in range(num_epochs):
+    def forward(self, x):
+        return x
 
-    for phase in ['train', 'test']:
 
-        running_loss = .0
-        mse_loss =.0
-        if phase == 'train':
-            model.train()
-        else:
-            model.eval()
-        for inputs, labels in tqdm(dataloader[phase], disable=True):
-            inputs = inputs.to(device)
-            labels = labels.float().squeeze().to(device)
+class ResTCN(nn.Module):
+    def __init__(self):
+        super(ResTCN, self).__init__()
 
-            with torch.set_grad_enabled(phase == 'train'):
-                outputs = model(inputs).squeeze()
-                mse = criterion(outputs, labels)  
-                x = outputs
-                y = labels
-                vx = x - torch.mean(x)
-                vy = y - torch.mean(y)
-                cov = torch.pow(torch.dot(vx,vy)/(batch_size),gamma)
-                loss = torch.pow(mse,gamma)/(cov + epsilon)
-                if phase == 'train':
-                    optimizer.zero_grad()
-                    loss.backward()
-                    optimizer.step()
+        self.spatial_feat_dim = 512
+        self.num_classes = 1
+        self.nhid = 128 #inception net vgg face2 hidden layers
+        self.levels = 4
+        self.kernel_size = 7
+        self.dropout = .1
+        self.channel_sizes = [self.nhid] * self.levels
 
-            running_loss += loss.item() * inputs.size(0)
-            mse_loss += mse*inputs.size(0)
+        self.tcn = TemporalConvNet(
+            self.spatial_feat_dim,
+            self.channel_sizes,
+            kernel_size=self.kernel_size,
+            dropout=self.dropout)
+        self.linear = nn.Linear(self.channel_sizes[-1], self.num_classes) #64->1 #64*1
 
-        # if phase == 'train':
-        #     scheduler.step()
+        self.model_conv = InceptionResnetV1(pretrained='vggface2').eval()
+        #self.model_linear = nn.Linear(512,self.spatial_feat_dim)
+        # for param in self.model_conv.parameters():
+        #     param.requires_grad = False
 
-        epoch_loss = running_loss / dataset_sizes[phase]
-        epoch_mse =  mse_loss / dataset_sizes[phase]
+        #num_ftrs = self.model_conv.fc.in_features
+        # self.model_conv.fc = nn.Linear(num_ftrs, 4)
+        #self.model_conv.fc = nn.Linear(num_ftrs, self.spatial_feat_dim)
+        # self.model_conv.fc = Identity()
 
-        print("[{}] Epoch: {}/{} Loss: {} LR: {} ".format(
-            phase, epoch + 1, num_epochs, epoch_mse, scheduler.get_last_lr()), flush=True)
-    print("--------------------------------------------------------------------------------")
+        # self.rnn = nn.LSTM(self.spatial_feat_dim, 64, 1, batch_first=True)
+        # self.linear = nn.Linear(64, 4)
 
-torch.save(model,"model.pt")
-torch.save(model.state_dict(),"model_state_dict")
+    def forward(self, data):
+        # t = 0
+        # x = data[:, t, :, :, :] C*H*W batch size*timesteps*512
+        # output = self.model_conv(x)
+
+        #z = torch.zeros([data.shape[0], data.shape[1], self.spatial_feat_dim]).cuda()
+        #for t in range(data.size(1)):
+         #   x = self.model_conv(data[:, t, :, :, :]) #batchsize*C*H*W
+            #x = self.model_linear(x) batchsize*512
+          #  z[:, t, :] = x
+
+        # y, _ = self.rnn(z) 
+        # output = self.linear(torch.sum(y, dim=1))
+    #batchsize*512*timesteps
+        z = data.transpose(1, 2)
+        y = self.tcn(z) 
+        # output = self.linear(y[:, :, -1])
+        output = self.linear(torch.sum(y, dim=2)) #batchsize*1
+
+        return output
