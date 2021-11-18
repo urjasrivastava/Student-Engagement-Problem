@@ -1,4 +1,3 @@
-import os
 from torch.optim.lr_scheduler import StepLR
 from tqdm import tqdm
 import torch
@@ -10,7 +9,7 @@ from ResTCN import ResTCN
 from utils import get_dataloaders
 
 torch.manual_seed(0)
-num_epochs = 5
+num_epochs = 30
 batch_size = 4
 lr = .0001
 use_cuda = True
@@ -18,9 +17,7 @@ device = torch.device("cuda" if use_cuda else "cpu")
 print("Device being used:", device, flush=True)
 dataloader = get_dataloaders(batch_size,
                             'train.csv',
-                            os.path.join(os.getcwd(), 'TrainFrames'),
-                            'test.csv',
-                            os.path.join(os.getcwd(), 'TestFrames'))
+                            'test.csv',)
 dataset_sizes = {x: len(dataloader[x].dataset) for x in ['train', 'test']}
 print(dataset_sizes, flush=True)
 gamma = 2
@@ -36,6 +33,7 @@ for epoch in range(num_epochs):
     for phase in ['train', 'test']:
 
         running_loss = .0
+        mse_loss =.0
         if phase == 'train':
             model.train()
         else:
@@ -59,14 +57,16 @@ for epoch in range(num_epochs):
                     optimizer.step()
 
             running_loss += loss.item() * inputs.size(0)
+            mse_loss += mse*inputs.size(0)
 
         # if phase == 'train':
         #     scheduler.step()
 
         epoch_loss = running_loss / dataset_sizes[phase]
+        epoch_mse =  mse_loss / dataset_sizes[phase]
 
-        print("[{}] Epoch: {}/{} Loss: {} LR: {}".format(
-            phase, epoch + 1, num_epochs, epoch_loss, scheduler.get_last_lr()), flush=True)
+        print("[{}] Epoch: {}/{} Loss: {} LR: {} ".format(
+            phase, epoch + 1, num_epochs, epoch_mse, scheduler.get_last_lr()), flush=True)
     print("--------------------------------------------------------------------------------")
 
 torch.save(model,"model.pt")
