@@ -15,11 +15,10 @@ class Identity(nn.Module):
 class ResTCN(nn.Module):
     def __init__(self):
         super(ResTCN, self).__init__()
-
         self.spatial_feat_dim = 512
         self.num_classes = 1
-        self.nhid = 128 #inception net vgg face2 hidden layers
-        self.levels = 4
+        self.nhid = 32 #inception net vgg face2 hidden layers
+        self.levels = 2
         self.kernel_size = 7
         self.dropout = .1
         self.channel_sizes = [self.nhid] * self.levels
@@ -31,7 +30,7 @@ class ResTCN(nn.Module):
             dropout=self.dropout)
         self.linear = nn.Linear(self.channel_sizes[-1], self.num_classes) #64->1 #64*1
 
-        self.model_conv = InceptionResnetV1(pretrained='vggface2').eval()
+        #self.model_conv = InceptionResnetV1(pretrained='vggface2').eval()
         #self.model_linear = nn.Linear(512,self.spatial_feat_dim)
         # for param in self.model_conv.parameters():
         #     param.requires_grad = False
