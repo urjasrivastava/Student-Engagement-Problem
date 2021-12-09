@@ -7,12 +7,13 @@ import numpy as np
 # from ResTCN import ResTCN
 from ResTCN import ResTCN
 from utils import get_dataloaders
-
+from sklearn.metrics import r2_score
 torch.manual_seed(0)
-num_epochs = 30
-batch_size = 4
+num_epochs = 50
+batch_size = 512
 lr = .0001
 use_cuda = True
+min_loss = 1e5
 device = torch.device("cuda" if use_cuda else "cpu")
 print("Device being used:", device, flush=True)
 dataloader = get_dataloaders(batch_size,
@@ -27,7 +28,8 @@ optimizer = optim.Adam(model.parameters(), lr=lr)
 #optimizer = optim.SGD(model.parameters(), lr=lr, momentum=0.9)
 scheduler = StepLR(optimizer, step_size=50, gamma=.1)
 criterion = nn.MSELoss().to(device)
-
+y_true= torch.tensor([]).to(device)
+y_preds = torch.tensor([]).to(device)
 for epoch in range(num_epochs):
 
     for phase in ['train', 'test']:
@@ -55,19 +57,31 @@ for epoch in range(num_epochs):
                     optimizer.zero_grad()
                     loss.backward()
                     optimizer.step()
-
+                if phase == 'test' and epoch == num_epochs-1:
+                    y_true =torch.cat((y_true,labels))
+                    y_preds= torch.cat((y_preds,outputs))
+            
             running_loss += loss.item() * inputs.size(0)
-            mse_loss += mse*inputs.size(0)
+            mse_loss += mse.item()*inputs.size(0)
 
         # if phase == 'train':
         #     scheduler.step()
 
         epoch_loss = running_loss / dataset_sizes[phase]
         epoch_mse =  mse_loss / dataset_sizes[phase]
-
+        if epoch_mse < min_loss and phase =="test":
+            min_loss = epoch_mse
         print("[{}] Epoch: {}/{} Loss: {} LR: {} ".format(
             phase, epoch + 1, num_epochs, epoch_mse, scheduler.get_last_lr()), flush=True)
     print("--------------------------------------------------------------------------------")
-
+print("CCC Loss")
+y_preds = y_preds.cpu().numpy()
+y_true = y_true.cpu().numpy()
+print("r2 score on test set : ")
+print(r2_score(y_true,y_preds))
+print("pearson correlation on test set : ")
+print(np.corrcoef(y_true,y_preds)[0][1])
+print("Minimum MSE Loss :")
+print(min_loss)
 torch.save(model,"model.pt")
 torch.save(model.state_dict(),"model_state_dict")
