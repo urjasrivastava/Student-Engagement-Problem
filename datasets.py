@@ -3,8 +3,7 @@ import pandas as pd
 import os
 import torch
 from facenet_pytorch import InceptionResnetV1
-
-
+from sklearn.preprocessing import Normalizer
 class VideoDataset(Dataset):
 
     def __init__(self, csv, root, transform=None):
@@ -37,6 +36,7 @@ class EmbeddingDataset(Dataset):
     def __init__(self, csv, train):
 
         self.dataframe = pd.read_csv(csv)
+        self.scaled = (self.dataframe["Engagement"]-self.dataframe["Engagement"].min())/(self.dataframe["Engagement"].max()-self.dataframe["Engagement"].min())
         self.path=''
         if train:
             self.path = "data_drive_path"
@@ -49,7 +49,7 @@ class EmbeddingDataset(Dataset):
 
     def __getitem__(self, index):
 
-        label = torch.tensor(self.dataframe.iloc[index][2])
+        label = torch.tensor(self.scaled[index])
         path = "{}{}".format(self.path,index)
         z = torch.load(path)      
 
